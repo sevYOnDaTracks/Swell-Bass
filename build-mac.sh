@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compile Swell Bass pour macOS (AU + VST3 + Standalone, universel arm64/x86_64)
+# Compile Swell Essential Bass pour macOS (AU + VST3 + Standalone, universel arm64/x86_64)
 set -eu
 cd "$(dirname "$0")"
 [ -n "$(ls Assets/bank/*.flac 2>/dev/null)" ] || ./Tools/make-bank.sh

@@ -5,8 +5,8 @@
 namespace swell::licence_config
 {
 // Doit être exactement le slug du produit dans la boutique (swell-audio.fr/boutique/<slug>).
-inline constexpr const char* product = "swell-bass";
-inline constexpr const char* productName = "Bass";
+inline constexpr const char* product = "swell-essential-bass";
+inline constexpr const char* productName = "Essential Bass";
 
 // Clé publique Ed25519 des licences Swell, la même pour tous les plugins.
 // Sa clé privée est LICENSE_PRIVATE_KEY sur le serveur : ne jamais la mettre ici.

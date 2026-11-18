@@ -25,11 +25,11 @@ endif()
 
 juce_add_plugin(SwellBass
     COMPANY_NAME "Swell-audio"
-    BUNDLE_ID "fr.swell-audio.bass"
+    BUNDLE_ID "fr.swell-audio.essential-bass"
     PLUGIN_MANUFACTURER_CODE Swel
     PLUGIN_CODE Sbas
     FORMATS ${BASS_FORMATS}
-    PRODUCT_NAME "Swell Bass"
+    PRODUCT_NAME "Swell Essential Bass"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE

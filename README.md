@@ -1,4 +1,4 @@
-# Swell Bass
+# Swell Essential Bass
 
 Instrument de basse par Swell Audio : SUB BASS, REESE BASS, 808 et PLUCK BASS. Tous les sons se jouent depuis C5, avec glide sans clic et favoris. Les samples sont tes fichiers d'origine (seul le volume change) ; les queues trop courtes sont prolongées hors ligne par resynthèse harmonique (808, sub, pluck) ou par longs fondus (reese), sans boucle. Banque d'usine intégrée au plugin, plus un dossier « Mes samples » pour ajouter ses propres sons.
 

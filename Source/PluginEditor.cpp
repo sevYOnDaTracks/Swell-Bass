@@ -235,7 +235,7 @@ Settings::Settings (Processor& p) : proc (p)
     close.onClick = [this] { setVisible (false); };
     deactivate.onClick = [this] {
         juce::AlertWindow::showOkCancelBox (juce::MessageBoxIconType::WarningIcon, juce::String::fromUTF8 ("Désactiver la licence"),
-            juce::String::fromUTF8 ("Swell Bass sera désactivé sur cet ordinateur et sa place libérée sur ton compte."), juce::String::fromUTF8 ("Désactiver"), "Annuler", this,
+            juce::String::fromUTF8 ("Swell Essential Bass sera désactivé sur cet ordinateur et sa place libérée sur ton compte."), juce::String::fromUTF8 ("Désactiver"), "Annuler", this,
             juce::ModalCallbackFunction::create ([this] (int r) { if (r == 1) licence->deactivate(); }));
     };
     change.onClick = [this] {
@@ -330,7 +330,7 @@ void Settings::paint (juce::Graphics& g)
     section ("TAILLE DE L'INTERFACE");
     r.removeFromTop (36);
     section (juce::String::fromUTF8 ("À PROPOS"));
-    row (g, r.removeFromTop (34), "Swell Bass v" JucePlugin_VersionString, juce::String::fromUTF8 ("Swell Audio \xc2\xb7 swell-audio.fr"));
+    row (g, r.removeFromTop (34), "Swell Essential Bass v" JucePlugin_VersionString, juce::String::fromUTF8 ("Swell Audio \xc2\xb7 swell-audio.fr"));
 }
 
 void Settings::resized()
@@ -488,7 +488,7 @@ void Editor::paint (juce::Graphics& g)
     g.drawText ("SWELL", 74, 14, 100, 40, juce::Justification::centredLeft);
     const int sw = juce::GlyphArrangement::getStringWidthInt (look.display (36.f), "SWELL ");
     g.setColour (acc);
-    g.drawText ("BASS", 74 + sw, 14, 100, 40, juce::Justification::centredLeft);
+    g.drawText ("ESSENTIAL BASS", 74 + sw, 14, 260, 40, juce::Justification::centredLeft);
     // volume de sortie
     g.setColour (col::muted);
     g.setFont (juce::FontOptions (10.f, juce::Font::bold));

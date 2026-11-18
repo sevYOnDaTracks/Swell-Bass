@@ -3,10 +3,22 @@
 
 namespace swell::bass
 {
+static juce::File appData (const char* product)
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory).getChildFile ("Swell Audio").getChildFile (product);
+}
+
 static juce::File settingsFile()
 {
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-        .getChildFile ("Swell Audio").getChildFile ("Swell Bass").getChildFile ("settings.xml");
+    auto f = appData ("Swell Essential Bass").getChildFile ("settings.xml");
+    // le plugin s'appelait « Swell Bass » : on reprend ses réglages et favoris une seule fois
+    if (! f.existsAsFile())
+        if (auto old = appData ("Swell Bass").getChildFile ("settings.xml"); old.existsAsFile())
+        {
+            f.getParentDirectory().createDirectory();
+            old.copyFileTo (f);
+        }
+    return f;
 }
 
 juce::File Bank::userFolder()
@@ -14,8 +26,15 @@ juce::File Bank::userFolder()
     if (auto xml = juce::parseXML (settingsFile()))
         if (auto p = xml->getStringAttribute ("userFolder"); p.isNotEmpty())
             return juce::File (p);
-    return juce::File::getSpecialLocation (juce::File::userMusicDirectory)
-        .getChildFile ("Swell Audio").getChildFile ("Swell Bass").getChildFile ("User");
+    auto root = juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("Swell Audio");
+    auto now = root.getChildFile ("Swell Essential Bass").getChildFile ("User");
+    // ancien nom : on déplace le dossier des sons perso pour ne rien perdre
+    if (auto old = root.getChildFile ("Swell Bass").getChildFile ("User"); ! now.exists() && old.isDirectory())
+    {
+        now.getParentDirectory().createDirectory();
+        old.moveFileTo (now);
+    }
+    return now;
 }
 
 void Bank::setUserFolder (const juce::File& f)

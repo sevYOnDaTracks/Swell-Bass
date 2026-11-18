@@ -40,7 +40,7 @@ public:
     const juce::Array<Entry>& entries (int category) const { return lists[(size_t) juce::jlimit (0, numCategories - 1, category)]; }
     std::shared_ptr<Sample> load (int category, int index) const;
 
-    static juce::File userFolder();                    // ~/Music/Swell Audio/Swell Bass/User
+    static juce::File userFolder();                    // ~/Music/Swell Audio/Swell Essential Bass/User
     static void setUserFolder (const juce::File&);
     // Favoris : communs à toutes les instances et tous les projets (settings.xml)
     bool isFavorite (int category, const juce::String& name) const { return favorites.contains (favKey (category, name)); }
