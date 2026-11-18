@@ -6,6 +6,9 @@ namespace swell::bass
 {
 enum Category { Sub = 0, Reese, Eight08, Pluck, numCategories };
 
+// Touche où chaque sample sonne à sa hauteur d'origine : C5 (note MIDI 60, convention FL Studio : do central = C5).
+inline constexpr int kRootKey = 60;
+
 inline const char* categoryName (int c)
 {
     static const char* n[] { "SUB BASS", "REESE BASS", "808", "PLUCK BASS" };
@@ -16,7 +19,7 @@ struct Entry
 {
     juce::String name;      // nom affiché (« Fondation »)
     int category = Sub;
-    int rootNote = 24;      // note MIDI de base (C1 = 24)
+    int rootNote = kRootKey; // touche où le sample sonne à sa hauteur d'origine
     bool user = false;      // vient du dossier de l'utilisateur
     juce::String resource;  // nom BinaryData (usine)
     juce::File file;        // fichier (utilisateur)
@@ -26,8 +29,16 @@ struct Sample
 {
     juce::AudioBuffer<float> audio; // stéréo
     double sampleRate = 44100.0;
-    int rootNote = 24;
+    int rootNote = kRootKey;
+
+    // Tenue : boucle calculée à partir de la partie stable du son. Arrivée à loopStart, la lecture tourne dans
+    // 'loop' (volume aplani, raccord en fondu) tant que la note est tenue : un sample court ne se coupe plus.
+    juce::AudioBuffer<float> loop;
+    int loopStart = -1, loopLength = 0;
+    bool hasLoop() const noexcept { return loopStart >= 0 && loopLength > 8; }
 };
+
+void buildSustainLoop (Sample&); // calcule la boucle (appelée au chargement)
 
 class Bank
 {
@@ -39,10 +50,16 @@ public:
 
     static juce::File userFolder();                    // ~/Music/Swell Audio/Swell Bass/User
     static void setUserFolder (const juce::File&);
-    static int parseRootNote (const juce::String& fileStem, int fallback = 24); // « Nom_C1 » -> 24
+    // Favoris : communs à toutes les instances et tous les projets (settings.xml)
+    bool isFavorite (int category, const juce::String& name) const { return favorites.contains (favKey (category, name)); }
+    void toggleFavorite (int category, const juce::String& name);
+
+    static int parseRootNote (const juce::String& fileStem, int fallback = kRootKey); // « Nom_C1 » -> 60, « Nom_D1 » -> 62
 
 private:
     void addFactory();
+    static juce::String favKey (int c, const juce::String& n) { return juce::String (categoryName (c)) + "/" + n; }
+    juce::StringArray favorites;
     std::array<juce::Array<Entry>, numCategories> lists;
     mutable juce::AudioFormatManager formats;
 };

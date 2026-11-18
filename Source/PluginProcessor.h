@@ -15,6 +15,7 @@ public:
         float drive = 0, tone = 1, glide = 0.08f;
         float detune = 0, width = 0, punch = 0, snap = 0, gain = 1;
         int category = Sub, mode = 0; // 0 Mono, 1 Legato, 2 Glide
+        bool sustain = true;          // tenue en boucle tant que la note est tenue
     };
 
     void prepare (double sr) { hostRate = sr; reset(); }
@@ -37,6 +38,10 @@ private:
     float glideFrom = 24, glideT = 1;
     double since = 0;               // secondes depuis l'attaque (punch, snap)
     float lp[2][2] {};              // filtre passe-bas 2 pôles par canal
+    double lastRate = 1, lastRateB = 1; // vitesses de lecture du dernier échantillon (lectures A et B)
+    bool tailOn = false;            // note précédente en train de s'éteindre (anti-clic)
+    double tailPos = 0, tailPosB = 0, tailRate = 1, tailRateB = 1;
+    float tailGain = 0;
 };
 
 class Processor final : public juce::AudioProcessor, private juce::Timer

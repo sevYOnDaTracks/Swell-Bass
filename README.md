@@ -1,6 +1,6 @@
 # Swell Bass
 
-Instrument de basse par Swell Audio : SUB BASS, REESE BASS, 808 et PLUCK BASS. Banque d'usine intégrée au plugin, plus un dossier « Mes samples » pour ajouter ses propres sons.
+Instrument de basse par Swell Audio : SUB BASS, REESE BASS, 808 et PLUCK BASS. Tous les sons se jouent depuis C5 (hauteur d'origine), avec tenue en boucle automatique, glide sans clic et favoris. Banque d'usine intégrée au plugin, plus un dossier « Mes samples » pour ajouter ses propres sons.
 
 Formats : AU, VST3 et Standalone (macOS universel), VST3 et Standalone (Windows).
 

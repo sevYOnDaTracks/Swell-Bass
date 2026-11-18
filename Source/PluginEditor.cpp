@@ -4,7 +4,7 @@
 namespace swell::bass
 {
 static constexpr int W = 1000, H = 660;
-static juce::String noteName (int n) { return juce::MidiMessage::getMidiNoteName (n, true, true, 4); }
+static juce::String noteName (int n) { return juce::MidiMessage::getMidiNoteName (n, true, true, 5); }
 
 // ===== Look ======================================================================================
 Look::Look()
@@ -96,32 +96,60 @@ SampleList::SampleList (Processor& p) : proc (p)
     addAndMakeVisible (list);
 }
 
+void SampleList::rebuildRows()
+{
+    rows.clear();
+    const auto& l = proc.bank.entries (proc.category());
+    for (int i = 0; i < l.size(); ++i)
+        if (! favOnly || proc.bank.isFavorite (proc.category(), l[i].name)) rows.push_back (i);
+}
+
 void SampleList::refresh()
 {
+    rebuildRows();
     list.updateContent();
-    list.selectRow (proc.sampleIndex(), true, true);
+    const auto it = std::find (rows.begin(), rows.end(), proc.sampleIndex());
+    if (it != rows.end()) list.selectRow ((int) (it - rows.begin()), true, true);
+    else list.deselectAllRows();
     list.repaint();
 }
 
-int SampleList::getNumRows() { return proc.bank.entries (proc.category()).size(); }
+int SampleList::getNumRows() { return (int) rows.size(); }
+
+static juce::Rectangle<int> starArea (int w, int h) { return { w - 30, 0, 26, h }; }
 
 void SampleList::paintListBoxItem (int row, juce::Graphics& g, int w, int h, bool selected)
 {
+    if (! juce::isPositiveAndBelow (row, (int) rows.size())) return;
     const auto& l = proc.bank.entries (proc.category());
-    if (! juce::isPositiveAndBelow (row, l.size())) return;
-    const auto& e = l.getReference (row);
+    const auto& e = l.getReference (rows[(size_t) row]);
     const auto acc = col::accent (proc.category());
     auto r = juce::Rectangle<int> (0, 0, w, h).reduced (2, 2).toFloat();
     if (selected) { g.setColour (acc.withAlpha (0.18f)); g.fillRoundedRectangle (r, 6.f); }
     g.setColour (selected ? acc : col::ink);
     g.setFont (juce::FontOptions (13.f));
-    g.drawText (e.name, r.reduced (9, 0).toNearestInt(), juce::Justification::centredLeft);
+    g.drawText (e.name, r.reduced (9, 0).withTrimmedRight (60).toNearestInt(), juce::Justification::centredLeft, true);
     g.setColour (col::muted);
     g.setFont (juce::FontOptions (10.f));
-    g.drawText ((e.user ? juce::String ("PERSO  ") : juce::String()) + noteName (e.rootNote), r.reduced (9, 0).toNearestInt(), juce::Justification::centredRight);
+    g.drawText ((e.user ? juce::String ("PERSO  ") : juce::String()) + noteName (e.rootNote), r.withTrimmedRight (32).toNearestInt(), juce::Justification::centredRight);
+    const bool fav = proc.bank.isFavorite (proc.category(), e.name);
+    g.setColour (fav ? acc : col::muted.withAlpha (0.45f));
+    g.setFont (juce::FontOptions (15.f));
+    g.drawText (juce::String::fromUTF8 (fav ? "\xe2\x98\x85" : "\xe2\x98\x86"), starArea (w, h), juce::Justification::centred);
 }
 
-void SampleList::listBoxItemClicked (int row, const juce::MouseEvent&) { proc.selectSample (proc.category(), row); }
+void SampleList::listBoxItemClicked (int row, const juce::MouseEvent& e)
+{
+    if (! juce::isPositiveAndBelow (row, (int) rows.size())) return;
+    const int idx = rows[(size_t) row];
+    if (starArea (list.getVisibleRowWidth(), list.getRowHeight()).contains (e.getPosition().withY (list.getRowHeight() / 2)))
+    {
+        proc.bank.toggleFavorite (proc.category(), proc.bank.entries (proc.category())[idx].name);
+        refresh();
+        return;
+    }
+    proc.selectSample (proc.category(), idx);
+}
 
 // ===== Forme d'onde ==============================================================================
 void WaveView::update()
@@ -167,6 +195,17 @@ void WaveView::paint (juce::Graphics& g)
         g.setColour (col::muted);
         g.drawText ("Aucun sample", getLocalBounds(), juce::Justification::centred);
         return;
+    }
+    if (shown != nullptr && shown->hasLoop() && proc.params.getRawParameterValue ("sustain")->load() > 0.5f)
+    {
+        const float n = (float) shown->audio.getNumSamples();
+        const float x0 = shown->loopStart / n * r.getWidth(), x1 = (shown->loopStart + shown->loopLength) / n * r.getWidth();
+        g.setColour (acc.withAlpha (0.10f));
+        g.fillRect (x0, 0.f, juce::jmax (2.f, x1 - x0), r.getHeight());
+        g.setColour (acc.withAlpha (0.6f));
+        g.drawVerticalLine ((int) x0, 0, r.getHeight());
+        g.setFont (juce::FontOptions (10.f));
+        g.drawText (juce::String::fromUTF8 ("\xe2\x86\xbb tenue"), (int) x0 + 4, (int) r.getHeight() - 18, 70, 14, juce::Justification::centredLeft);
     }
     g.setColour (acc.withAlpha (0.18f));
     g.fillPath (wave);
@@ -337,8 +376,18 @@ Editor::Editor (Processor& p)
         addAndMakeVisible (modes[i]);
     }
 
-    keys.setAvailableRange (24, 59);
-    keys.setOctaveForMiddleC (4);
+    sustain.setClickingTogglesState (true);
+    sustain.setTooltip (juce::String::fromUTF8 ("La note tient tant que la touche est enfoncée, même si le sample est court"));
+    sustainAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.params, "sustain", sustain);
+    addAndMakeVisible (sustain);
+    favFilter.setClickingTogglesState (true);
+    favFilter.setTooltip ("N'afficher que tes favoris");
+    favFilter.onClick = [this] { samples.setFavoritesOnly (favFilter.getToggleState()); repaint(); };
+    addAndMakeVisible (favFilter);
+
+    keys.setAvailableRange (48, 83);   // C4 à B6, le C5 au milieu
+    keys.setOctaveForMiddleC (5);
+    keys.setKeyPressBaseOctave (5);     // clavier de l'ordinateur : Q = C5
     keys.setKeyWidth (27.f);
     keys.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, juce::Colour (0xffd9d4ee));
     keys.setColour (juce::MidiKeyboardComponent::blackNoteColourId, juce::Colour (0xff15121f));
@@ -369,8 +418,17 @@ juce::Rectangle<int> Editor::tabBounds (int i) const
 
 void Editor::step (int d)
 {
-    const int n = proc.bank.entries (proc.category()).size();
-    if (n > 0) proc.selectSample (proc.category(), (proc.sampleIndex() + d + n) % n);
+    // les flèches parcourent ce que montre la liste (tous les sons, ou seulement les favoris)
+    const int c = proc.category();
+    const auto& l = proc.bank.entries (c);
+    std::vector<int> idx;
+    for (int i = 0; i < l.size(); ++i)
+        if (! samples.favoritesOnly() || proc.bank.isFavorite (c, l[i].name)) idx.push_back (i);
+    if (idx.empty()) return;
+    auto it = std::find (idx.begin(), idx.end(), proc.sampleIndex());
+    const int pos = it == idx.end() ? 0 : (int) (it - idx.begin());
+    const int n = (int) idx.size();
+    proc.selectSample (c, idx[(size_t) ((pos + d + n) % n)]);
 }
 
 void Editor::mouseDown (const juce::MouseEvent& e)
@@ -519,6 +577,7 @@ void Editor::resized()
     next.setBounds (gear.getX() - 10 - 30, 15, 30, 36);
     prev.setBounds (next.getX() - 200, 15, 30, 36);
     samples.setBounds (44, 172, 198, 242);
+    favFilter.setBounds (160, 156, 80, 18);
     wave.setBounds (272, 172, 442, 210);
 
     // grille 3 x 3 des boutons rotatifs ; ligne 3 selon la catégorie
@@ -532,6 +591,7 @@ void Editor::resized()
     else if (c == Pluck)   place (kSnap, 0, 2);
     place (kVolume, 2, 2);
     for (int i = 0; i < 3; ++i) modes[i].setBounds (750 + i * 68, 418, 62, 26);
+    sustain.setBounds (880, 401, 74, 16);
 
     keys.setBounds (24, 500, W - 48, 136);
     keys.setKeyWidth ((W - 48) / 21.f);
