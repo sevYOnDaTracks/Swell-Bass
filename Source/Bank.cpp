@@ -1,0 +1,133 @@
+#include "Bank.h"
+#include "BinaryData.h"
+
+namespace swell::bass
+{
+static juce::File settingsFile()
+{
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+        .getChildFile ("Swell Audio").getChildFile ("Swell Bass").getChildFile ("settings.xml");
+}
+
+juce::File Bank::userFolder()
+{
+    if (auto xml = juce::parseXML (settingsFile()))
+        if (auto p = xml->getStringAttribute ("userFolder"); p.isNotEmpty())
+            return juce::File (p);
+    return juce::File::getSpecialLocation (juce::File::userMusicDirectory)
+        .getChildFile ("Swell Audio").getChildFile ("Swell Bass").getChildFile ("User");
+}
+
+void Bank::setUserFolder (const juce::File& f)
+{
+    juce::XmlElement xml ("SwellBass");
+    if (auto old = juce::parseXML (settingsFile())) xml = *old;
+    xml.setAttribute ("userFolder", f.getFullPathName());
+    settingsFile().getParentDirectory().createDirectory();
+    xml.writeTo (settingsFile());
+}
+
+int Bank::parseRootNote (const juce::String& stem, int fallback)
+{
+    // dernier « _Note » du nom : _C1, _F#2, _Bb0
+    auto tag = stem.fromLastOccurrenceOf ("_", false, false).trim().toUpperCase();
+    if (tag.isEmpty() || tag == stem.toUpperCase()) return fallback;
+    static const int base[] { 9, 11, 0, 2, 4, 5, 7 }; // A B C D E F G
+    const auto letter = tag[0];
+    if (letter < 'A' || letter > 'G') return fallback;
+    int n = base[letter - 'A'], i = 1;
+    if (tag[i] == '#') { ++n; ++i; }
+    else if (tag[i] == 'B' && tag.length() > 2) { --n; ++i; }
+    auto oct = tag.substring (i);
+    if (! oct.containsOnly ("-0123456789") || oct.isEmpty()) return fallback;
+    return juce::jlimit (0, 127, n + 12 * (oct.getIntValue() + 1));
+}
+
+static juce::String displayName (const juce::String& stem)
+{
+    return stem.containsChar ('_') ? stem.upToLastOccurrenceOf ("_", false, false) : stem;
+}
+
+Bank::Bank()
+{
+    formats.registerBasicFormats();
+    rescan();
+}
+
+void Bank::addFactory()
+{
+    static const std::pair<const char*, int> tags[] { { "SUB__", Sub }, { "REESE__", Reese }, { "808__", Eight08 }, { "PLUCK__", Pluck } };
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+    {
+        const juce::String file = BinaryData::getNamedResourceOriginalFilename (BinaryData::namedResourceList[i]);
+        if (! file.endsWithIgnoreCase (".flac")) continue;
+        for (auto& [tag, cat] : tags)
+            if (file.startsWith (tag))
+            {
+                const auto stem = file.fromFirstOccurrenceOf ("__", false, false).upToLastOccurrenceOf (".", false, false);
+                Entry e;
+                e.name = displayName (stem);
+                e.category = cat;
+                e.rootNote = parseRootNote (stem);
+                e.resource = BinaryData::namedResourceList[i];
+                lists[(size_t) cat].add (e);
+            }
+    }
+}
+
+void Bank::rescan()
+{
+    for (auto& l : lists) l.clear();
+    addFactory();
+
+    const auto root = userFolder();
+    for (int c = 0; c < numCategories; ++c)
+    {
+        auto dir = root.getChildFile (categoryName (c));
+        dir.createDirectory(); // le client voit tout de suite où déposer ses sons
+        juce::Array<juce::File> files;
+        for (const auto& f : juce::RangedDirectoryIterator (dir, false, "*.wav;*.aif;*.aiff;*.flac"))
+            if (! f.getFile().getFileName().startsWith ("._")) files.add (f.getFile());
+        files.sort();
+        for (auto& f : files)
+        {
+            Entry e;
+            e.name = displayName (f.getFileNameWithoutExtension());
+            e.category = c;
+            e.rootNote = parseRootNote (f.getFileNameWithoutExtension());
+            e.user = true;
+            e.file = f;
+            lists[(size_t) c].add (e);
+        }
+    }
+    for (auto& l : lists)
+        std::stable_sort (l.begin(), l.end(), [] (const Entry& a, const Entry& b) { return ! a.user && b.user; });
+}
+
+std::shared_ptr<Sample> Bank::load (int category, int index) const
+{
+    const auto& l = entries (category);
+    if (! juce::isPositiveAndBelow (index, l.size())) return {};
+    const auto& e = l.getReference (index);
+
+    std::unique_ptr<juce::AudioFormatReader> reader;
+    if (e.user)
+        reader.reset (formats.createReaderFor (e.file));
+    else
+    {
+        int size = 0;
+        if (auto* data = BinaryData::getNamedResource (e.resource.toRawUTF8(), size))
+            reader.reset (formats.createReaderFor (std::make_unique<juce::MemoryInputStream> (data, (size_t) size, false)));
+    }
+    if (reader == nullptr || reader->lengthInSamples <= 0) return {};
+
+    auto s = std::make_shared<Sample>();
+    const auto len = (int) juce::jmin<juce::int64> (reader->lengthInSamples, (juce::int64) reader->sampleRate * 60);
+    s->audio.setSize (2, len);
+    reader->read (&s->audio, 0, len, 0, true, true);
+    if (reader->numChannels == 1) s->audio.copyFrom (1, 0, s->audio, 0, 0, len);
+    s->sampleRate = reader->sampleRate;
+    s->rootNote = e.rootNote;
+    return s;
+}
+} // namespace swell::bass

@@ -1,0 +1,5 @@
+build/
+.DS_Store
+._*
+Assets/samples-originaux/
+build-mac.log
