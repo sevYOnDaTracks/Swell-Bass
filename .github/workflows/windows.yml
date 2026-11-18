@@ -1,0 +1,27 @@
+name: Windows
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurer
+        run: cmake -S . -B build -A x64
+      - name: Compiler
+        run: cmake --build build --config Release --parallel 4 --target SwellBass_VST3 SwellBass_Standalone
+      - name: Empaqueter
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path package/Windows -Force
+          Copy-Item -Recurse "build/SwellBass_artefacts/Release/VST3/Swell Essential Bass.vst3" package/Windows/
+          Copy-Item "build/SwellBass_artefacts/Release/Standalone/Swell Essential Bass.exe" package/Windows/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Swell-Essential-Bass-Windows
+          path: package/Windows
+          if-no-files-found: error
