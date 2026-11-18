@@ -3,13 +3,11 @@
 
 namespace swell::bass
 {
-enum P { pCat, pSample, pAttack, pDecay, pRelease, pDrive, pTone, pGlide, pDetune, pWidth, pPunch, pSnap, pMode, pVolume, pSustain, numP };
+enum P { pCat, pSample, pAttack, pDecay, pRelease, pDrive, pTone, pGlide, pDetune, pWidth, pPunch, pSnap, pMode, pVolume, numP };
 static const char* ids[numP] { "category", "sample", "attack", "decay", "release", "drive", "tone", "glide",
-                               "detune", "width", "punch", "snap", "mode", "volume", "sustain" };
+                               "detune", "width", "punch", "snap", "mode", "volume" };
 
 // ===== Voix ======================================================================================
-// Marge de sortie : deux notes qui se chevauchent (fondu anti-clic) ne dépassent pas 0 dB.
-static constexpr float kHeadroom = 0.708f; // -3 dB
 // Sécurité : transparent sous -1 dB, arrondit au-dessus au lieu d'écrêter net.
 static inline float safety (float x)
 {
@@ -86,18 +84,6 @@ static inline float readAt (const juce::AudioBuffer<float>& b, int ch, double po
     return ((a * f - bn) * f + c) * f + x0;
 }
 
-static inline float readLoop (const juce::AudioBuffer<float>& b, int ch, double pos)
-{
-    const int n = b.getNumSamples();
-    const int i = (int) pos;
-    const float f = (float) (pos - i);
-    const auto* d = b.getReadPointer (ch);
-    auto at = [&] (int k) { k %= n; if (k < 0) k += n; return d[k]; };
-    const float xm1 = at (i - 1), x0 = at (i), x1 = at (i + 1), x2 = at (i + 2);
-    const float c = (x1 - xm1) * 0.5f, v = x0 - x1, w = c + v, a = w + v + (x2 - x0) * 0.5f, bn = w + a;
-    return ((a * f - bn) * f + c) * f + x0;
-}
-
 void BassVoice::render (juce::AudioBuffer<float>& out, int start, int num, const Sample* smp, const Settings& s)
 {
     if ((stage == Idle && ! tailOn) || smp == nullptr) return;
@@ -107,16 +93,13 @@ void BassVoice::render (juce::AudioBuffer<float>& out, int start, int num, const
     const float attackStep = dt / juce::jmax (0.003f, s.attack);    // 3 ms minimum : jamais de départ sec
     const float tailCoef = std::exp (-dt / 0.006f);                  // fondu de la note précédente (~20 ms)
     const double fadeEnd = 0.004 * smp->sampleRate;                  // fin du sample : fondu de 4 ms
-    const bool looping = s.sustain && smp->hasLoop();
-    const double ls = smp->loopStart, ll = smp->loopLength;
-    // lecture : dans la boucle de tenue une fois passé son début, sinon le sample tel quel
-    auto rd = [&] (int ch, double pos) { return looping && pos >= ls ? readLoop (smp->loop, ch, pos - ls) : readAt (audio, ch, pos); };
-    auto wrap = [&] (double& pos) { if (looping && pos >= ls + ll) pos -= ll * std::floor ((pos - ls) / ll); };
+    auto rd = [&] (int ch, double pos) { return readAt (audio, ch, pos); };
     const float decayCoef = s.decay > 0 ? std::exp (-dt / (s.decay * 0.3f)) : 1.f;
     const float releaseCoef = std::exp (-dt / juce::jmax (0.002f, s.release * 0.3f));
     const float glideStep = s.glide > 0.001f ? dt / s.glide : 1.f;
     const double rateBase = smp->sampleRate / hostRate;
     const bool reese = s.category == Reese, eight = s.category == Eight08, pluck = s.category == Pluck;
+    const bool filterOn = s.tone < 0.999f || (pluck && s.snap > 0);   // Tone à 100 % : filtre totalement contourné
     const float detune = reese ? s.detune : 0.f;   // demi-tons
     const float width = reese ? s.width : 0.f;
     const float drive = 1.f + s.drive * 11.f, driveNorm = 1.f / std::tanh (drive);
@@ -150,7 +133,7 @@ void BassVoice::render (juce::AudioBuffer<float>& out, int start, int num, const
             case Release: env *= releaseCoef; if (env < 1.0e-4f) { stage = Idle; env = 0; } break;
             case Idle:    break;
         }
-        if (stage != Idle && ! looping && posA >= len) { stage = Idle; env = 0; }
+        if (stage != Idle && posA >= len) { stage = Idle; env = 0; }
         if (stage == Idle && ! tailOn)
         {
             std::memset (lp, 0, sizeof (lp));
@@ -173,17 +156,16 @@ void BassVoice::render (juce::AudioBuffer<float>& out, int start, int num, const
                 l = (aL * wa + bL * wb);
                 r = (bR * wa + aR * wb);
                 posA += ra; posB += rb;
-                wrap (posA); wrap (posB);
                 lastRate = ra; lastRateB = rb;
             }
             else
             {
                 l = rd (0, posA);
                 r = rd (1, posA);
-                posA += rate; wrap (posA); posB = posA;
+                posA += rate; posB = posA;
             }
             // fin du sample : petit fondu pour ne pas couper net
-            const float endFade = looping ? 1.f : (float) juce::jlimit (0.0, 1.0, (len - posA) / fadeEnd);
+            const float endFade = (float) juce::jlimit (0.0, 1.0, (len - posA) / fadeEnd);
             const float g = env * vel * endFade;
             x[0] = shape (l) * g;
             x[1] = shape (r) * g;
@@ -198,17 +180,18 @@ void BassVoice::render (juce::AudioBuffer<float>& out, int start, int num, const
             x[1] += shape (tr) * tailGain;
             tailPos += tailRate;
             tailPosB += tailRateB;
-            wrap (tailPos); wrap (tailPosB);
             tailGain *= tailCoef;
-            if (tailGain < 1.0e-4f || (! looping && tailPos >= len)) tailOn = false;
+            if (tailGain < 1.0e-4f || tailPos >= len) tailOn = false;
         }
-        for (int c = 0; c < 2; ++c)
-        {
-            lp[c][0] += coef * (x[c] - lp[c][0]);
-            lp[c][1] += coef * (lp[c][0] - lp[c][1]);
-        }
-        L[start + n] += safety (lp[0][1] * s.gain * kHeadroom);
-        if (R) R[start + n] += safety (lp[1][1] * s.gain * kHeadroom);
+        if (filterOn)
+            for (int c = 0; c < 2; ++c)
+            {
+                lp[c][0] += coef * (x[c] - lp[c][0]);
+                lp[c][1] += coef * (lp[c][0] - lp[c][1]);
+                x[c] = lp[c][1];
+            }
+        L[start + n] += safety (x[0] * s.gain);
+        if (R) R[start + n] += safety (x[1] * s.gain);
         since += dt;
     }
 }
@@ -239,7 +222,6 @@ static juce::AudioProcessorValueTreeState::ParameterLayout layout()
     l.add (std::make_unique<AudioParameterChoice> (ParameterID { ids[pMode], 1 }, "Mode", StringArray { "Mono", "Legato", "Glide" }, 0));
     l.add (std::make_unique<AudioParameterFloat> (ParameterID { ids[pVolume], 1 }, "Volume", NormalisableRange<float> (-24.f, 6.f), 0.f,
         AudioParameterFloatAttributes().withStringFromValueFunction ([] (float v, int) { return String (v, 1) + " dB"; })));
-    l.add (std::make_unique<AudioParameterBool> (ParameterID { ids[pSustain], 1 }, "Tenue", true));
     return l;
 }
 
@@ -343,7 +325,6 @@ BassVoice::Settings Processor::readSettings() const
     s.punch = p[pPunch]->load();
     s.snap = p[pSnap]->load();
     s.mode = (int) p[pMode]->load();
-    s.sustain = p[pSustain]->load() > 0.5f;
     s.category = category();
     s.gain = juce::Decibels::decibelsToGain (p[pVolume]->load());
     return s;

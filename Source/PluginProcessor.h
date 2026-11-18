@@ -15,7 +15,6 @@ public:
         float drive = 0, tone = 1, glide = 0.08f;
         float detune = 0, width = 0, punch = 0, snap = 0, gain = 1;
         int category = Sub, mode = 0; // 0 Mono, 1 Legato, 2 Glide
-        bool sustain = true;          // tenue en boucle tant que la note est tenue
     };
 
     void prepare (double sr) { hostRate = sr; reset(); }

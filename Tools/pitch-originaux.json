@@ -1,0 +1,322 @@
+[
+{
+"file": "./808/3.wav",
+"hz": 32.73,
+"note": "C1",
+"cents": 1,
+"midi": 24.009,
+"dur": 1.0
+},
+{
+"file": "./808/5.wav",
+"hz": 32.62,
+"note": "C1",
+"cents": -4,
+"midi": 24.009,
+"dur": 2.51
+},
+{
+"file": "./808/808 - Other World 2 [ C ]_2.wav",
+"hz": 32.69,
+"note": "C1",
+"cents": -1,
+"midi": 24.009,
+"dur": 2.25
+},
+{
+"file": "./808/808 - Plug @helpsisleet.wav",
+"hz": 32.7,
+"note": "C1",
+"cents": 0,
+"midi": 24.009,
+"dur": 2.02
+},
+{
+"file": "./808/808 - Real - 808iden [ C ].wav",
+"hz": 33.21,
+"note": "C1",
+"cents": 27,
+"midi": 24.142,
+"dur": 3.43
+},
+{
+"file": "./808/808 - Splinz On Creatine @helpsisleet.wav",
+"hz": 32.71,
+"note": "C1",
+"cents": 0,
+"midi": 24.009,
+"dur": 1.38
+},
+{
+"file": "./808/808 - Swag @helpsisleet.wav",
+"hz": 32.75,
+"note": "C1",
+"cents": 2,
+"midi": 24.009,
+"dur": 3.81
+},
+{
+"file": "./808/808 - Wide Zay@helpsisleet.wav",
+"hz": 32.76,
+"note": "C1",
+"cents": 3,
+"midi": 23.964,
+"dur": 1.04
+},
+{
+"file": "./808/808 5 (D).wav",
+"hz": 37.22,
+"note": "D1",
+"cents": 24,
+"midi": 26.142,
+"dur": 2.19
+},
+{
+"file": "./808/808 With Kick.wav",
+"hz": 29.37,
+"note": "A#0",
+"cents": 14,
+"midi": 22.131,
+"dur": 3.57
+},
+{
+"file": "./808/DJ PLUG 808.wav",
+"hz": 32.76,
+"note": "C1",
+"cents": 3,
+"midi": 24.009,
+"dur": 1.97
+},
+{
+"file": "./808/Kick Poing.wav",
+"hz": 31.0,
+"note": "B0",
+"cents": 8,
+"midi": 23.001,
+"dur": 2.77
+},
+{
+"file": "./808/Lil Uzi vert 2.wav",
+"hz": 35.54,
+"note": "C#1",
+"cents": 44,
+"midi": 25.378,
+"dur": 3.09
+},
+{
+"file": "./808/Lil uzi vert.wav",
+"hz": 32.37,
+"note": "C1",
+"cents": -18,
+"midi": 23.83,
+"dur": 2.77
+},
+{
+"file": "./808/Metro boomin.wav",
+"hz": 52.41,
+"note": "G#1",
+"cents": 17,
+"midi": 32.135,
+"dur": 1.71
+},
+{
+"file": "./808/Southside.wav",
+"hz": 32.99,
+"note": "C1",
+"cents": 15,
+"midi": 24.142,
+"dur": 1.68
+},
+{
+"file": "./808/[KIMY] 808 Invasion (1).wav",
+"hz": 65.31,
+"note": "C2",
+"cents": -3,
+"midi": 35.965,
+"dur": 1.71
+},
+{
+"file": "./808/[KIMY] 808 Invasion (6).wav",
+"hz": 32.94,
+"note": "C1",
+"cents": 12,
+"midi": 24.142,
+"dur": 5.63
+},
+{
+"file": "./808/\u2661 @saren_sauce \u2661 808 - Lucky charm \u2661_2.wav",
+"hz": 32.68,
+"note": "C1",
+"cents": -1,
+"midi": 23.92,
+"dur": 1.0
+},
+{
+"file": "./PLUCK BASS/Chris brown bass.wav",
+"hz": 34.56,
+"note": "C#1",
+"cents": -4,
+"midi": 24.96,
+"dur": 1.13
+},
+{
+"file": "./PLUCK BASS/PluckStar  (10)_2.wav",
+"hz": 36.63,
+"note": "D1",
+"cents": -4,
+"midi": 25.964,
+"dur": 1.02
+},
+{
+"file": "./PLUCK BASS/bass roll 3_2.wav",
+"hz": 91.91,
+"note": "F#2",
+"cents": -11,
+"midi": 41.89,
+"dur": 0.82
+},
+{
+"file": "./REESE BASS/808 BASS 2.wav",
+"hz": 32.77,
+"note": "C1",
+"cents": 4,
+"midi": 24.054,
+"dur": 7.65
+},
+{
+"file": "./REESE BASS/BASS 808 MERGED.wav",
+"hz": 32.75,
+"note": "C1",
+"cents": 3,
+"midi": 24.009,
+"dur": 9.12
+},
+{
+"file": "./REESE BASS/BASS AFRO.wav",
+"hz": 32.05,
+"note": "C1",
+"cents": -35,
+"midi": 23.987,
+"dur": 7.71
+},
+{
+"file": "./REESE BASS/BASS DIDI B.wav",
+"hz": 32.81,
+"note": "C1",
+"cents": 5,
+"midi": 23.987,
+"dur": 7.73
+},
+{
+"file": "./REESE BASS/Bass 4 (B).wav",
+"hz": 30.78,
+"note": "B0",
+"cents": -5,
+"midi": 22.954,
+"dur": 4.57
+},
+{
+"file": "./REESE BASS/Bass\u00a05 (E).wav",
+"hz": 41.56,
+"note": "E1",
+"cents": 15,
+"midi": 27.988,
+"dur": 21.33
+},
+{
+"file": "./REESE BASS/CLICK BASS.wav",
+"hz": 33.21,
+"note": "C1",
+"cents": 27,
+"midi": 23.965,
+"dur": 5.54
+},
+{
+"file": "./REESE BASS/GOUTE D EAU BASS.wav",
+"hz": 32.77,
+"note": "C1",
+"cents": 3,
+"midi": 23.965,
+"dur": 7.67
+},
+{
+"file": "./REESE BASS/GROWLER BASS.wav",
+"hz": 32.54,
+"note": "C1",
+"cents": -8,
+"midi": 23.965,
+"dur": 7.72
+},
+{
+"file": "./REESE BASS/KNB BASS.wav",
+"hz": 32.78,
+"note": "C1",
+"cents": 4,
+"midi": 24.009,
+"dur": 5.54
+},
+{
+"file": "./REESE BASS/KYLIAN BASS.wav",
+"hz": 65.43,
+"note": "C2",
+"cents": 1,
+"midi": 36.009,
+"dur": 10.54
+},
+{
+"file": "./REESE BASS/RAGE BASS.wav",
+"hz": 32.56,
+"note": "C1",
+"cents": -8,
+"midi": 23.92,
+"dur": 5.61
+},
+{
+"file": "./REESE BASS/REESE BASS CLASSIC.wav",
+"hz": 33.31,
+"note": "C1",
+"cents": 32,
+"midi": 24.009,
+"dur": 3.85
+},
+{
+"file": "./REESE BASS/SINE BASS.wav",
+"hz": 32.99,
+"note": "C1",
+"cents": 15,
+"midi": 24.054,
+"dur": 13.66
+},
+{
+"file": "./REESE BASS/TRAVIS BASS.wav",
+"hz": 32.79,
+"note": "C1",
+"cents": 5,
+"midi": 24.076,
+"dur": 5.54
+},
+{
+"file": "./SUB BASS/BASIC SINE SUB.wav",
+"hz": 65.61,
+"note": "C2",
+"cents": 5,
+"midi": 36.05,
+"dur": 7.74
+},
+{
+"file": "./SUB BASS/BASIC TRIANGLE.wav",
+"hz": 32.58,
+"note": "C1",
+"cents": -7,
+"midi": 24.054,
+"dur": 7.87
+},
+{
+"file": "./SUB BASS/MOOG SUB.wav",
+"hz": 65.4,
+"note": "C2",
+"cents": 0,
+"midi": 36.009,
+"dur": 2.71
+}
+]

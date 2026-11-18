@@ -19,7 +19,7 @@ struct Entry
 {
     juce::String name;      // nom affiché (« Fondation »)
     int category = Sub;
-    int rootNote = kRootKey; // touche où le sample sonne à sa hauteur d'origine
+    float rootNote = kRootKey; // touche (avec cents) où le sample sonne à sa hauteur d'origine
     bool user = false;      // vient du dossier de l'utilisateur
     juce::String resource;  // nom BinaryData (usine)
     juce::File file;        // fichier (utilisateur)
@@ -29,16 +29,8 @@ struct Sample
 {
     juce::AudioBuffer<float> audio; // stéréo
     double sampleRate = 44100.0;
-    int rootNote = kRootKey;
-
-    // Tenue : boucle calculée à partir de la partie stable du son. Arrivée à loopStart, la lecture tourne dans
-    // 'loop' (volume aplani, raccord en fondu) tant que la note est tenue : un sample court ne se coupe plus.
-    juce::AudioBuffer<float> loop;
-    int loopStart = -1, loopLength = 0;
-    bool hasLoop() const noexcept { return loopStart >= 0 && loopLength > 8; }
+    float rootNote = kRootKey;
 };
-
-void buildSustainLoop (Sample&); // calcule la boucle (appelée au chargement)
 
 class Bank
 {
@@ -54,7 +46,7 @@ public:
     bool isFavorite (int category, const juce::String& name) const { return favorites.contains (favKey (category, name)); }
     void toggleFavorite (int category, const juce::String& name);
 
-    static int parseRootNote (const juce::String& fileStem, int fallback = kRootKey); // « Nom_C1 » -> 60, « Nom_D1 » -> 62
+    static float parseRootNote (const juce::String& fileStem, float fallback = kRootKey); // « Nom_C1 » -> 60, « Nom_E1+15 » -> 64,15
 
 private:
     void addFactory();

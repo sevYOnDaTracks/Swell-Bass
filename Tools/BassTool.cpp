@@ -54,26 +54,34 @@ int main (int argc, char** argv)
         std::printf ("%-11s %-14s crête %.2f\n", categoryName (c), proc.sampleName().toRawUTF8(), all.getMagnitude (0, all.getNumSamples()));
     }
 
-    if (std::getenv ("BASS_LOOPINFO") != nullptr)
+    if (std::getenv ("BASS_NULL") != nullptr)
     {
+        // Transparence : chaque sample joué sur sa note d'origine, à 44,1 kHz, sans tenue ; on écrit le rendu brut.
+        auto dir = out.getChildFile ("null"); dir.createDirectory();
+        const double sr44 = 44100;
+        proc.setPlayConfigDetails (0, 2, sr44, 512);
+        setP (proc, "punch", 0.f); setP (proc, "snap", 0.f); setP (proc, "detune", 0.f);
+        setP (proc, "tone", 1.f); setP (proc, "drive", 0.f); setP (proc, "volume", 0.f); setP (proc, "decay", 10.f);
         for (int c = 0; c < numCategories; ++c)
             for (int idx = 0; idx < proc.bank.entries (c).size(); ++idx)
             {
-                auto smp = proc.bank.load (c, idx);
-                if (! smp->hasLoop()) { std::printf ("%d %-14s PAS DE BOUCLE\n", c, proc.bank.entries (c)[idx].name.toRawUTF8()); continue; }
-                const auto* d = smp->loop.getReadPointer (0);
-                const int L = smp->loopLength;
-                std::vector<float> d2;
-                for (int i = 2; i < L; ++i) d2.push_back (std::abs (d[i] - 2 * d[i - 1] + d[i - 2]));
-                std::vector<float> sorted = d2; std::sort (sorted.begin(), sorted.end());
-                const float p99 = sorted[(size_t) (sorted.size() * 0.99)] + 1e-9f;
-                const float seam = juce::jmax (std::abs (d[0] - 2 * d[L - 1] + d[L - 2]), std::abs (d[1] - 2 * d[0] + d[L - 1]));
-                // entrée : audio juste avant loopStart -> boucle
-                const auto* a0 = smp->audio.getReadPointer (0);
-                const int ls = smp->loopStart;
-                const float entry = std::abs (d[0] - 2 * a0[ls - 1] + a0[ls - 2]);
-                std::printf ("%d %-14s début %.2fs  longueur %.3fs  raccord %.1f  entrée %.1f  niveau %.3f\n", c, proc.bank.entries (c)[idx].name.toRawUTF8(),
-                             ls / smp->sampleRate, L / smp->sampleRate, seam / p99, entry / p99, smp->loop.getRMSLevel (0, 0, L));
+                proc.selectSample (c, idx);
+                proc.prepareToPlay (sr44, 512);
+                const int root = juce::roundToInt (proc.bank.entries (c)[idx].rootNote);
+                juce::AudioBuffer<float> all (2, (int) (sr44 * 4)), block (2, 512);
+                all.clear();
+                for (int pos = 0; pos < all.getNumSamples(); pos += 512)
+                {
+                    juce::MidiBuffer m;
+                    if (pos == 0) m.addEvent (juce::MidiMessage::noteOn (1, root, 1.0f), 0);
+                    proc.processBlock (block, m);
+                    const int n = juce::jmin (512, all.getNumSamples() - pos);
+                    for (int ch = 0; ch < 2; ++ch) all.copyFrom (ch, pos, block, ch, 0, n);
+                }
+                auto f = dir.getChildFile (juce::String (c) + "__" + proc.sampleName() + ".wav");
+                f.deleteFile();
+                if (auto w = std::unique_ptr<juce::AudioFormatWriter> (wav.createWriterFor (new juce::FileOutputStream (f), sr44, 2, 32, {}, 0)))
+                    w->writeFromAudioSampleBuffer (all, 0, all.getNumSamples());
             }
         return 0;
     }
@@ -82,7 +90,7 @@ int main (int argc, char** argv)
     {
         // « vouuuu » : chaque sample tenu 6 s en mode Glide avec slides liés, puis relâché.
         auto dir = out.getChildFile ("hold"); dir.createDirectory();
-        setP (proc, "mode", 2.f); setP (proc, "glide", 0.25f); setP (proc, "sustain", std::getenv ("BASS_NOSUSTAIN") ? 0.f : 1.f);
+        setP (proc, "mode", 2.f); setP (proc, "glide", 0.25f);
         setP (proc, "punch", 0.f); setP (proc, "snap", 0.f);
         for (int c = 0; c < numCategories; ++c)
             for (int idx = 0; idx < proc.bank.entries (c).size(); ++idx)

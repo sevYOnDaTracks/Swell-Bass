@@ -27,7 +27,7 @@ void Bank::setUserFolder (const juce::File& f)
     xml.writeTo (settingsFile());
 }
 
-int Bank::parseRootNote (const juce::String& stem, int fallback)
+float Bank::parseRootNote (const juce::String& stem, float fallback)
 {
     // dernier « _Note » du nom : _C1, _F#2, _Bb0 ; sans note, le sample est en C
     auto tag = stem.fromLastOccurrenceOf ("_", false, false).trim().toUpperCase();
@@ -38,11 +38,16 @@ int Bank::parseRootNote (const juce::String& stem, int fallback)
     int n = base[letter - 'A'], i = 1;
     if (tag[i] == '#') { ++n; ++i; }
     else if (tag[i] == 'B' && tag.length() > 2) { --n; ++i; }
-    auto oct = tag.substring (i);
+    // hauteur exacte : « E1+15 » = mi, octave 1, +15 cents (l'octave ne compte pas, seule la note et les cents)
+    auto rest = tag.substring (i);
+    float cents = 0;
+    const int sign = juce::jmax (rest.lastIndexOfChar ('+'), rest.lastIndexOfChar ('-'));
+    if (sign > 0) { cents = rest.substring (sign).getFloatValue(); rest = rest.substring (0, sign); }
+    auto oct = rest;
     if (! oct.containsOnly ("-0123456789") || oct.isEmpty()) return fallback;
     // Tout se joue depuis C5 (note MIDI 60) : la touche C5 donne le sample à sa hauteur d'origine.
     // Seule la note compte, pas l'octave : un sample en D se cale sur D5 (62), donc C5 le joue un ton plus bas.
-    return kRootKey + ((n % 12) + 12) % 12;
+    return (float) kRootKey + (float) (((n % 12) + 12) % 12) + cents / 100.f;
 }
 
 static juce::String displayName (const juce::String& stem)
@@ -144,104 +149,7 @@ std::shared_ptr<Sample> Bank::load (int category, int index) const
     if (reader->numChannels == 1) s->audio.copyFrom (1, 0, s->audio, 0, 0, len);
     s->sampleRate = reader->sampleRate;
     s->rootNote = e.rootNote;
-    buildSustainLoop (*s);
     return s;
 }
 
-// ===== Tenue en boucle ===========================================================================
-void buildSustainLoop (Sample& s)
-{
-    const int n = s.audio.getNumSamples();
-    const double sr = s.sampleRate;
-    if (n < (int) (0.05 * sr)) return;
-    const auto* chL = s.audio.getReadPointer (0);
-    const auto* chR = s.audio.getReadPointer (1);
-    auto mono = [&] (int i) { return 0.5f * (chL[i] + chR[i]); };
-
-    // enveloppe RMS (fenêtre 40 ms, pas de 5 ms)
-    const int hop = juce::jmax (1, (int) (0.005 * sr)), win = (int) (0.04 * sr);
-    std::vector<float> env;
-    for (int c = 0; c + 1 < n; c += hop)
-    {
-        double acc = 0; int cnt = 0;
-        for (int i = juce::jmax (0, c - win / 2); i < juce::jmin (n, c + win / 2); ++i) { const float v = mono (i); acc += v * v; ++cnt; }
-        env.push_back ((float) std::sqrt (acc / juce::jmax (1, cnt)));
-    }
-    auto E = [&] (int i) {
-        const float f = (float) i / hop;
-        const int a = juce::jlimit (0, (int) env.size() - 1, (int) f), b = juce::jmin ((int) env.size() - 1, a + 1);
-        return env[(size_t) a] + (env[(size_t) b] - env[(size_t) a]) * (f - (float) a);
-    };
-    const int peakFrame = (int) (std::max_element (env.begin(), env.end()) - env.begin());
-    const float peakEnv = env[(size_t) peakFrame];
-    if (peakEnv < 1.0e-4f) return;
-    const int peakIdx = peakFrame * hop;
-
-    // période : autocorrélation autour de la zone choisie (20 à 400 Hz)
-    auto periodAt = [&] (int at) {
-        const int minLag = (int) (sr / 400), maxLag = (int) (sr / 20), len = juce::jmin ((int) (0.12 * sr), n - at - maxLag - 1);
-        if (len < maxLag) return (int) (sr / 65.4);
-        int best = minLag; double bestV = -1e30;
-        for (int lag = minLag; lag <= maxLag; ++lag)
-        {
-            double acc = 0;
-            for (int i = 0; i < len; i += 2) acc += mono (at + i) * mono (at + i + lag);
-            acc /= (double) (len - lag * 0.0);
-            if (acc > bestV * 1.02) { bestV = acc; best = lag; } // la plus petite période forte
-        }
-        return best;
-    };
-
-    // début de boucle : quand le son est retombé à -10 dB (la partie tenue), ou vers la fin s'il tient tout seul
-    const int earliest = juce::jmin (n - 1, peakIdx + (int) (0.12 * sr));
-    int ls = -1;
-    const float thr = peakEnv * 0.316f;
-    for (int i = earliest; i < n; i += hop) if (E (i) < thr) { ls = i; break; }
-    int L = (int) (0.25 * sr);
-    if (ls < 0) ls = n - L - (int) (0.05 * sr);
-    // échantillon trop court : boucle plus courte, placée dans ce qui reste après l'attaque
-    const int avail = n - juce::jmin (n - 1, peakIdx + (int) (0.03 * sr)) - 2;
-    if (avail < 64) return;
-    L = juce::jmin (L, (int) (avail * 0.6));
-    const int T = periodAt (juce::jlimit (0, juce::jmax (0, n - (int) (0.2 * sr)), ls));
-    if (T > 0 && L >= T) L = juce::jmax (T, (L / T) * T);
-    // la boucle doit rester dans le son : si le fichier finit par du silence (ou une chute brutale),
-    // on la recule avant la fin de la partie encore forte
-    int lastLoud = -1;
-    for (int i = n - 1; i > peakIdx; i -= hop) if (E (i) > peakEnv * 0.2f) { lastLoud = i; break; }
-    const int minStart = juce::jmin (n - 1, peakIdx + (int) (0.03 * sr));
-    if (lastLoud > 0 && lastLoud - minStart < L + 16)
-    {   // sample très court : boucle raccourcie pour tenir entre l'attaque et la fin du son
-        L = juce::jmax (64, lastLoud - minStart - 16);
-        if (T > 0 && L >= T) L = (L / T) * T;
-    }
-    if (lastLoud > 0 && ls + L > lastLoud) ls = lastLoud - L;
-    ls = juce::jlimit (juce::jmin (n - 1, peakIdx + (int) (0.03 * sr)), juce::jmax (0, n - L - 2), ls);
-    int X = juce::jmax (8, juce::jmin ((int) (0.06 * sr), L / 2));
-    X = juce::jmin (X, ls);                       // le fondu ne peut pas commencer avant le début du fichier
-    if (X < 8 || ls + L > n) return;
-
-    const float ref = juce::jmax (E (ls), 1.0e-5f), floorE = ref * 0.05f;
-    auto flat = [&] (int i) { return ref / juce::jmax (floorE, E (i)); };
-    s.loop.setSize (2, L);
-    for (int ch = 0; ch < 2; ++ch)
-    {
-        const auto* d = s.audio.getReadPointer (ch);
-        auto* o = s.loop.getWritePointer (ch);
-        for (int i = 0; i < L; ++i)
-        {
-            float v = d[ls + i] * flat (ls + i);
-            if (i >= L - X)
-            {   // raccord : la fin de la boucle se fond dans ce qui précède son début
-                const int j = i - (L - X);
-                const float w = (float) j / (float) X * juce::MathConstants<float>::halfPi;
-                const float pre = d[ls - X + j] * flat (ls - X + j);
-                v = v * std::cos (w) + pre * std::sin (w);
-            }
-            o[i] = v;
-        }
-    }
-    s.loopStart = ls;
-    s.loopLength = L;
-}
 } // namespace swell::bass

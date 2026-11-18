@@ -4,7 +4,7 @@
 namespace swell::bass
 {
 static constexpr int W = 1000, H = 660;
-static juce::String noteName (int n) { return juce::MidiMessage::getMidiNoteName (n, true, true, 5); }
+static juce::String noteName (float f) { const int n = juce::roundToInt (f); return juce::MidiMessage::getMidiNoteName (n, true, true, 5); }
 
 // ===== Look ======================================================================================
 Look::Look()
@@ -131,7 +131,8 @@ void SampleList::paintListBoxItem (int row, juce::Graphics& g, int w, int h, boo
     g.drawText (e.name, r.reduced (9, 0).withTrimmedRight (60).toNearestInt(), juce::Justification::centredLeft, true);
     g.setColour (col::muted);
     g.setFont (juce::FontOptions (10.f));
-    g.drawText ((e.user ? juce::String ("PERSO  ") : juce::String()) + noteName (e.rootNote), r.withTrimmedRight (32).toNearestInt(), juce::Justification::centredRight);
+    // tout est accordé : la touche C5 joue chaque son en do
+    g.drawText ((e.user ? juce::String ("PERSO  ") : juce::String()) + noteName ((float) kRootKey), r.withTrimmedRight (32).toNearestInt(), juce::Justification::centredRight);
     const bool fav = proc.bank.isFavorite (proc.category(), e.name);
     g.setColour (fav ? acc : col::muted.withAlpha (0.45f));
     g.setFont (juce::FontOptions (15.f));
@@ -195,17 +196,6 @@ void WaveView::paint (juce::Graphics& g)
         g.setColour (col::muted);
         g.drawText ("Aucun sample", getLocalBounds(), juce::Justification::centred);
         return;
-    }
-    if (shown != nullptr && shown->hasLoop() && proc.params.getRawParameterValue ("sustain")->load() > 0.5f)
-    {
-        const float n = (float) shown->audio.getNumSamples();
-        const float x0 = shown->loopStart / n * r.getWidth(), x1 = (shown->loopStart + shown->loopLength) / n * r.getWidth();
-        g.setColour (acc.withAlpha (0.10f));
-        g.fillRect (x0, 0.f, juce::jmax (2.f, x1 - x0), r.getHeight());
-        g.setColour (acc.withAlpha (0.6f));
-        g.drawVerticalLine ((int) x0, 0, r.getHeight());
-        g.setFont (juce::FontOptions (10.f));
-        g.drawText (juce::String::fromUTF8 ("\xe2\x86\xbb tenue"), (int) x0 + 4, (int) r.getHeight() - 18, 70, 14, juce::Justification::centredLeft);
     }
     g.setColour (acc.withAlpha (0.18f));
     g.fillPath (wave);
@@ -376,10 +366,6 @@ Editor::Editor (Processor& p)
         addAndMakeVisible (modes[i]);
     }
 
-    sustain.setClickingTogglesState (true);
-    sustain.setTooltip (juce::String::fromUTF8 ("La note tient tant que la touche est enfoncée, même si le sample est court"));
-    sustainAttach = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (p.params, "sustain", sustain);
-    addAndMakeVisible (sustain);
     favFilter.setClickingTogglesState (true);
     favFilter.setTooltip ("N'afficher que tes favoris");
     favFilter.onClick = [this] { samples.setFavoritesOnly (favFilter.getToggleState()); repaint(); };
@@ -591,7 +577,6 @@ void Editor::resized()
     else if (c == Pluck)   place (kSnap, 0, 2);
     place (kVolume, 2, 2);
     for (int i = 0; i < 3; ++i) modes[i].setBounds (750 + i * 68, 418, 62, 26);
-    sustain.setBounds (880, 401, 74, 16);
 
     keys.setBounds (24, 500, W - 48, 136);
     keys.setKeyWidth ((W - 48) / 21.f);

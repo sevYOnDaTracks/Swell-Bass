@@ -119,8 +119,6 @@ private:
     juce::OwnedArray<Knob> knobs;
     juce::TextButton modes[3] { juce::TextButton ("Mono"), juce::TextButton ("Legato"), juce::TextButton ("Glide") };
     juce::TextButton favFilter { juce::String::fromUTF8 ("\xe2\x98\x85 Favoris") };
-    juce::TextButton sustain { juce::String::fromUTF8 ("TENUE \xe2\x88\x9e") };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> sustainAttach;
     juce::MidiKeyboardComponent keys;
     Settings settings;
     int shownCat = -1, shownIdx = -1, shownCount = -1;
