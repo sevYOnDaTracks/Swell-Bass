@@ -24,6 +24,7 @@ public:
     juce::Font display (float h) const { return juce::Font (juce::FontOptions (bebas).withHeight (h)); }
     void drawRotarySlider (juce::Graphics&, int, int, int, int, float, float, float, juce::Slider&) override;
     void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool, bool) override;
+    void drawLinearSlider (juce::Graphics&, int, int, int, int, float, float, float, juce::Slider::SliderStyle, juce::Slider&) override;
     void drawButtonText (juce::Graphics&, juce::TextButton&, bool, bool) override;
 };
 
@@ -118,6 +119,8 @@ private:
     WaveView wave;
     juce::OwnedArray<Knob> knobs;
     juce::TextButton modes[3] { juce::TextButton ("Mono"), juce::TextButton ("Legato"), juce::TextButton ("Glide") };
+    juce::Slider master;                     // volume de sortie, toujours visible dans l'en-tête
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> masterAttach;
     juce::TextButton favFilter { juce::String::fromUTF8 ("\xe2\x98\x85 Favoris") };
     juce::MidiKeyboardComponent keys;
     Settings settings;

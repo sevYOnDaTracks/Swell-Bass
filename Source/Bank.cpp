@@ -46,8 +46,13 @@ float Bank::parseRootNote (const juce::String& stem, float fallback)
     auto oct = rest;
     if (! oct.containsOnly ("-0123456789") || oct.isEmpty()) return fallback;
     // Tout se joue depuis C5 (note MIDI 60) : la touche C5 donne le sample à sa hauteur d'origine.
-    // Seule la note compte, pas l'octave : un sample en D se cale sur D5 (62), donc C5 le joue un ton plus bas.
-    return (float) kRootKey + (float) (((n % 12) + 12) % 12) + cents / 100.f;
+    // Seule la note compte, pas l'octave.
+    // Hauteur absolue du son (C1 = 24). Tout ce qui est à moins de 8,5 demi-tons de C1 se joue en C1 sur la
+    // touche C5 (Impact en la#0 monte un peu, Young Metro en sol#1 descend) : toutes les 808 à la même octave.
+    // Les sons nettement plus aigus (subs en C2...) gardent leur octave : do le plus proche.
+    const float m = (float) (n + 12 * (oct.getIntValue() + 1)) + cents / 100.f;
+    const float target = std::abs (m - 24.f) <= 8.5f ? 24.f : 12.f * std::ceil (m / 12.f - 0.5f);
+    return (float) kRootKey + (m - target);
 }
 
 static juce::String displayName (const juce::String& stem)

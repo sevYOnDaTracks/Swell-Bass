@@ -45,6 +45,19 @@ void Look::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, floa
     g.fillPath (needle);
 }
 
+void Look::drawLinearSlider (juce::Graphics& g, int x, int y, int w, int h, float pos, float, float, juce::Slider::SliderStyle, juce::Slider&)
+{
+    const float cy = y + h * 0.5f;
+    g.setColour (col::line);
+    g.fillRoundedRectangle ((float) x, cy - 2.f, (float) w, 4.f, 2.f);
+    g.setColour (accent);
+    g.fillRoundedRectangle ((float) x, cy - 2.f, pos - x, 4.f, 2.f);
+    g.setColour (accent.withAlpha (0.35f));
+    g.fillEllipse (pos - 9.f, cy - 9.f, 18.f, 18.f);
+    g.setColour (col::ink);
+    g.fillEllipse (pos - 6.f, cy - 6.f, 12.f, 12.f);
+}
+
 void Look::drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour&, bool over, bool down)
 {
     auto r = b.getLocalBounds().toFloat().reduced (0.5f);
@@ -336,7 +349,7 @@ void Settings::resized()
 }
 
 // ===== Éditeur ===================================================================================
-enum { kAttack, kDecay, kRelease, kDrive, kTone, kGlide, kDetune, kWidth, kPunch, kSnap, kVolume };
+enum { kAttack, kDecay, kRelease, kDrive, kTone, kGlide, kDetune, kWidth, kPunch, kSnap };
 
 Editor::Editor (Processor& p)
     : AudioProcessorEditor (p), proc (p), samples (p), wave (p),
@@ -354,7 +367,7 @@ Editor::Editor (Processor& p)
 
     const std::pair<const char*, const char*> defs[] { { "attack", "Attack" }, { "decay", "Decay" }, { "release", "Release" },
         { "drive", "Drive" }, { "tone", "Tone" }, { "glide", "Glide" }, { "detune", "Detune" }, { "width", "Width" },
-        { "punch", "Punch" }, { "snap", "Snap" }, { "volume", "Volume" } };
+        { "punch", "Punch" }, { "snap", "Snap" } };
     for (auto& [id, name] : defs) addAndMakeVisible (knobs.add (new Knob (p.params, id, name)));
 
     for (int i = 0; i < 3; ++i)
@@ -366,6 +379,13 @@ Editor::Editor (Processor& p)
         addAndMakeVisible (modes[i]);
     }
 
+    master.setSliderStyle (juce::Slider::LinearHorizontal);
+    master.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    master.setDoubleClickReturnValue (true, 0.0);
+    master.setTooltip ("Volume de sortie du plugin (double-clic : 0 dB)");
+    master.onValueChange = [this] { repaint (430, 10, 260, 46); };
+    masterAttach = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (p.params, "volume", master);
+    addAndMakeVisible (master);
     favFilter.setClickingTogglesState (true);
     favFilter.setTooltip ("N'afficher que tes favoris");
     favFilter.onClick = [this] { samples.setFavoritesOnly (favFilter.getToggleState()); repaint(); };
@@ -469,10 +489,14 @@ void Editor::paint (juce::Graphics& g)
     const int sw = juce::GlyphArrangement::getStringWidthInt (look.display (36.f), "SWELL ");
     g.setColour (acc);
     g.drawText ("BASS", 74 + sw, 14, 100, 40, juce::Justification::centredLeft);
-    const int bw = juce::GlyphArrangement::getStringWidthInt (look.display (36.f), "BASS");
+    // volume de sortie
     g.setColour (col::muted);
-    g.setFont (juce::FontOptions (11.f));
-    g.drawText ("SWELL AUDIO", 74 + sw + bw + 12, 24, 120, 20, juce::Justification::centredLeft);
+    g.setFont (juce::FontOptions (10.f, juce::Font::bold));
+    g.drawText ("SORTIE", 440, 22, 56, 22, juce::Justification::centredLeft);
+    g.setColour (col::ink);
+    g.setFont (juce::FontOptions (12.f, juce::Font::bold));
+    if (auto* vp = proc.params.getParameter ("volume"))
+        g.drawText (vp->getCurrentValueAsText(), 632, 22, 60, 22, juce::Justification::centredLeft);
     // nom du sample entre les flèches
     auto nameBox = juce::Rectangle<int> (prev.getRight() + 4, prev.getY(), next.getX() - prev.getRight() - 8, prev.getHeight());
     g.setColour (juce::Colour (0x66000000));
@@ -560,6 +584,7 @@ void Editor::paint (juce::Graphics& g)
 void Editor::resized()
 {
     gear.setBounds (W - 24 - 38, 15, 38, 36);
+    master.setBounds (500, 22, 130, 22);
     next.setBounds (gear.getX() - 10 - 30, 15, 30, 36);
     prev.setBounds (next.getX() - 200, 15, 30, 36);
     samples.setBounds (44, 172, 198, 242);
@@ -575,7 +600,6 @@ void Editor::resized()
     if (c == Reese)        { place (kDetune, 0, 2); place (kWidth, 1, 2); }
     else if (c == Eight08) place (kPunch, 0, 2);
     else if (c == Pluck)   place (kSnap, 0, 2);
-    place (kVolume, 2, 2);
     for (int i = 0; i < 3; ++i) modes[i].setBounds (750 + i * 68, 418, 62, 26);
 
     keys.setBounds (24, 500, W - 48, 136);
