@@ -181,6 +181,7 @@ def extend_texture(x, sr, j, env, h):
     slope_db = np.polyfit(tt, db, 1)[0] if len(tt) > 8 else 0.0
     slope_db = float(np.clip(slope_db, -60.0 / T60_LONG, 0.0))
     rms = lambda a: np.sqrt((a ** 2).mean()) + 1e-12
+    level0 = rms(x[max(0, j - int(1.0 * sr)):j])           # niveau du corps juste avant le raccord
     out = x[:j].copy()
     target_len = j + int(MAX_EXT * sr)
     rng = np.random.default_rng(11)
@@ -213,9 +214,17 @@ def extend_texture(x, sr, j, env, h):
         bs = lo + k
         recent.append(bs)
         piece = x[bs:bs + seg_len + xf].copy()
-        piece *= rms(tail) / rms(piece[:xf])               # même niveau au raccord
-        tp = np.arange(len(piece)) / sr
-        piece *= (10 ** (slope_db * tp / 20))[:, None]     # puis la pente naturelle
+        # volume : trajectoire FIXE, calée sur le corps du son au raccord, qui ne fait que descendre doucement.
+        # Chaque passage est ramené à cette trajectoire (pas au passage précédent) : aucune dérive possible.
+        t0 = (len(out) - xf - j) / sr
+        tp = t0 + np.arange(len(piece)) / sr
+        target = level0 * 10 ** (slope_db * tp / 20)
+        win = int(0.25 * sr)
+        cs_ = np.concatenate([[0.0], np.cumsum((piece ** 2).mean(axis=1))])
+        idx = np.clip(np.arange(len(piece)), win // 2, len(piece) - win // 2 - 1)
+        local = np.sqrt((cs_[idx + win // 2] - cs_[idx - win // 2]) / win) + 1e-12
+        smooth = np.convolve(local, np.ones(win) / win, "same")      # niveau lent du passage (garde son mouvement rapide)
+        piece *= (target / np.maximum(smooth, 1e-9))[:, None] ** 1.0
         # fondu à puissance constante qui tient compte de la ressemblance ρ des deux passages :
         # a² + b² + 2ρab = 1, avec b/a qui suit une courbe en S
         rho = float(np.clip(np.dot(tail_m, piece[:xf].mean(axis=1)) /
@@ -304,9 +313,13 @@ def process(src, dst, category, f_expected=None):
         save(dst, finish(x, sr, peak), sr)
         return "inchangé", tail_db, r2, f0
     y = finish(y, sr, peak)
-    pk = np.abs(y).max()
-    if pk > 0.95:
-        y *= 0.95 / pk
+    orig_pk = np.abs(x[:j]).max()
+    ext_pk = np.abs(y[j:]).max() if len(y) > j else 0.0
+    if ext_pk > orig_pk:                                   # seule la partie ajoutée est ramenée, jamais l'original
+        g = np.ones(len(y)); g[j:] = orig_pk / ext_pk
+        ramp = min(int(0.05 * sr), len(y) - j)
+        g[j:j + ramp] = np.linspace(1, orig_pk / ext_pk, ramp)
+        y = y * g[:, None]
     save(dst, y, sr)
     return method, tail_db, r2, f0, j / sr, len(y) / sr, lvl (j)
 
